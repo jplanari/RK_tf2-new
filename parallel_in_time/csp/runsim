@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#SBATCH --exclusive
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=36
+#SBATCH --job-name=csp3d
+#SBATCH --output=out/slurm-%j.out
+#SBATCH --error=out/slurm-%j.err
+
+# NOTE: ntasks is the mpi size
+
+# NOTE: cpus-per-task seems to be the thread count. It is exported as the
+# environment variable SLURM_CPUS_PER_TASK, which is available to us in the
+# simulation file.
+
+if test -z $1;
+then
+  echo "runsim <simfile>"
+  exit 0
+fi
+
+export USER_INSTALL_ROOT=$HOME/install
+export TFA_MODS_PATH=$USER_INSTALL_ROOT/tfa/mods
+export PATH=$USER_INSTALL_ROOT/bin:$PATH
+
+mpirun tf-sim $1
+# mpirun /home/guillem.colomer/install/bin/tf-sim $1
+# mpirun /usr/local/bin/tf-sim $1

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#SBATCH --chdir=.
+#SBATCH --ntasks=2
+#SBATCH --cpus-per-task=20
+#SBATCH --ntasks-per-node=2
+#SBATCH --ntasks-per-socket=1
+#SBATCH --exclusive
+#SBATCH -o out/postprocess.out
+
+
+if test -z $1;
+then
+  echo "runsim <simfile>"
+  exit 0
+fi
+
+srun tf-sim $1
+

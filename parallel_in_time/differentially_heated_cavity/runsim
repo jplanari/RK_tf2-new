@@ -1,0 +1,22 @@
+#!/bin/bash
+
+#SBATCH --chdir=.
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=40
+#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-socket=1
+#SBATCH --exclusive
+#SBATCH -o out/%x_%j.out
+#SBATCH -e error/%x_%j.out
+#SBATCH --account=upc61
+#SBATCH --qos=gp_resa
+
+if test -z $1;
+then
+  echo "runsim <simfile>"
+  exit 0
+fi
+
+source $HOME/JOSEP/tfa-whole/set_env.sh
+
+srun tf-sim $1

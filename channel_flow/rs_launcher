@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#SBATCH --chdir=.
+#SBATCH --cpus-per-task=56
+#SBATCH --ntasks-per-node=2
+#SBATCH --ntasks-per-socket=1
+#SBATCH --exclusive
+#SBATCH -o out/%x_%j.out
+#SBATCH -e error/%x_%j.out
+
+if test -z $1;
+then
+  echo "rs_launcher <simfile>"
+  exit 0
+fi
+
+export SRUN_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK}
+
+source $HOME/JOSEP/tfa-whole/set_env.sh
+
+srun tf-sim $1
