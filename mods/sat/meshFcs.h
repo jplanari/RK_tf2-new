@@ -2,7 +2,7 @@ tfa::Field &calcFaceStaggeredVolumes(tfa::Simulation &sim)
 {
     if(tfa::hasField(sim, "_FaceVolume")) return tfa::getField(sim, "_FaceVolume");
     
-    auto dim = tfa::getField(sim,"ux_N").dim;
+    auto dim = tfa::getField(sim,"ux").dim;
     auto &result = tfa::newField(sim, dim, "_FaceVolume", "Faces");
     
     uint32_t resultSize = tfa::getNumEntries(result);
@@ -27,7 +27,7 @@ tfa::Field &faceCellDist(tfa::Simulation &sim)
 {
   if(tfa::hasField(sim,"_FaceCellDist")) return tfa::getField(sim,"_FaceCellDist");
 
-  auto dim = tfa::getField(sim,"ux_N").dim;
+  auto dim = tfa::getField(sim,"ux").dim;
   auto &result = tfa::newField(sim, dim, "_FaceCellDist", "Faces");
   uint32_t resultSize = tfa::getNumEntries(result);
   std::vector<double> buffer(resultSize);

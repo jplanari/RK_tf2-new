@@ -18,9 +18,9 @@ double computeFaceContributionGershgorin_imag(tfa::V3 fnv, tfa::V3 uf, double Af
 
 void computeImagEV_Gershgorin(tfa::Simulation &sim)
 {
-    auto &ux_N = tfa::getField(sim,"ux_N");
-    auto &uy_N = tfa::getField(sim,"uy_N");
-    auto &uz_N = tfa::getField(sim,"uz_N");
+    auto &ux_N = tfa::getField(sim,"ux");
+    auto &uy_N = tfa::getField(sim,"uy");
+    auto &uz_N = tfa::getField(sim,"uz");
 
     auto &INF = tfa::getMatrix(sim,"Interp_NF");
     
@@ -71,9 +71,9 @@ void computeImagEV_Gershgorin(tfa::Simulation &sim)
 
 TF_Func void computeEV_Gershgorin(tfa::Simulation &sim)
 {
-    auto &ux_N = tfa::getField(sim,"ux_N");
-    auto &uy_N = tfa::getField(sim,"uy_N");
-    auto &uz_N = tfa::getField(sim,"uz_N");
+    auto &ux_N = tfa::getField(sim,"ux");
+    auto &uy_N = tfa::getField(sim,"uy");
+    auto &uz_N = tfa::getField(sim,"uz");
     auto &INF = tfa::getMatrix(sim,"Interp_NF");
     
     auto ux_f = tfa::getTmpFieldS(sim,ux_N.dim,"Faces");
@@ -156,7 +156,7 @@ TF_Func void computeRealEV_GershgorinMat(tfa::Simulation &sim)
     // NOTE: since this depends on the geometry only, it can be calculated once
     // at the start of the simulation.
 
-    auto &ux_N = tfa::getField(sim, "ux_N");
+    auto &ux_N = tfa::getField(sim, "ux");
     uint32_t dim = ux_N.dim;
 
     auto &vol = tfa::meshCellVolume(sim, dim);
@@ -241,7 +241,7 @@ TF_Func bool computeImagEV_GershgorinMat(tfa::Simulation &sim)
 
 tfa::Field &computeLambdaTilde(tfa::Simulation &sim)
 {
-    auto dim = tfa::getField(sim,"ux_N").dim;
+    auto dim = tfa::getField(sim,"ux").dim;
     auto &result = tfa::getOrCreateField(sim, dim, "Lambda", "Faces");
     
     auto &af = tfa::meshFaceArea(sim,dim);

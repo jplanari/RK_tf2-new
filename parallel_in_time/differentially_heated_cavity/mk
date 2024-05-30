@@ -1,5 +1,5 @@
 #!/bin/bash
 
-source $HOME/JOSEP/tfa-whole/set_env.sh
+source $HOME/JOSEP/tfa-whole/$1
 
 make clean && make

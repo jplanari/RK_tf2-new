@@ -3,7 +3,7 @@
 
 void diffusive(tfa::Field &u, tfa::Field &diff, tfa::Simulation &sim)
 {
-    auto &L = tfa::getMatrix(sim, "Lap_NC");
+    auto &L = tfa::getMatrix(sim, "Lap_NN");
 
     TF_uAssert(sim.IOParamD.count("kinVisc") > 0, "Parameter 'kinVisc' not defined");
     double visc = sim.IOParamD["kinVisc"];
@@ -14,7 +14,7 @@ void diffusive(tfa::Field &u, tfa::Field &diff, tfa::Simulation &sim)
 
 void diffusive(tfa::Field &u, tfa::Field &diff, double visc, tfa::Simulation &sim)
 {
-    auto &L = tfa::getMatrix(sim, "Lap_NC");
+    auto &L = tfa::getMatrix(sim, "Lap_NN");
 
     // Diffusive_i = visc*lap(u_i)
     tfa::oper_prod(L, u, diff, visc);
@@ -22,7 +22,7 @@ void diffusive(tfa::Field &u, tfa::Field &diff, double visc, tfa::Simulation &si
 
 void diffusiveT(tfa::Field &u, tfa::Field &diff, tfa::Simulation &sim)
 {
-    auto &L = tfa::getMatrix(sim, "Lap_NC");
+    auto &L = tfa::getMatrix(sim, "Lap_NN");
 
     TF_uAssert(sim.IOParamD.count("kinVisc") > 0, "Parameter 'kinVisc' not defined");
     double visc = sim.IOParamD["kinVisc"];
@@ -33,9 +33,9 @@ void diffusiveT(tfa::Field &u, tfa::Field &diff, tfa::Simulation &sim)
 
 void convective(tfa::Field &u, tfa::Field &conv, tfa::Simulation &sim)
 {
-    auto &DX  = tfa::getMatrix(sim, "DivX_FC");
-    auto &DY  = tfa::getMatrix(sim, "DivY_FC");
-    auto &DZ  = tfa::getMatrix(sim, "DivZ_FC");
+    auto &DX  = tfa::getMatrix(sim, "DivX_FN");
+    auto &DY  = tfa::getMatrix(sim, "DivY_FN");
+    auto &DZ  = tfa::getMatrix(sim, "DivZ_FN");
 
     auto &ufx   = tfa::getField(sim, "ux_F");
     auto &ufy   = tfa::getField(sim, "uy_F");

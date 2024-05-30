@@ -39,9 +39,9 @@ double my_rand0(double)
 TF_Func void init_fields(tfa::Simulation &sim)
 {
     srand48(tfa::mpiRank());
-    auto &ux = tfa::getField(sim, "ux_N");
-    auto &uy = tfa::getField(sim, "uy_N");
-    auto &uz = tfa::getField(sim, "uz_N");
+    auto &ux = tfa::getField(sim, "ux");
+    auto &uy = tfa::getField(sim, "uy");
+    auto &uz = tfa::getField(sim, "uz");
 
     // Since we are passing 'my_rand0' as the argument to 'oper_apply', and
     // 'my_rand0' is a function that maps a double into a double (as opposed to

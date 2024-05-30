@@ -21,7 +21,7 @@ TF_Func bool monitor(tfa::Simulation &sim)
 {
     static bool first = true;
     static bool steady_state = false;
-    const uint32_t ndim = tfa::getField(sim,"ux_N").dim;
+    const uint32_t ndim = tfa::getField(sim,"ux").dim;
     if (ndim>1){
     if (first)
     {
@@ -59,7 +59,7 @@ TF_Func bool monitor(tfa::Simulation &sim)
     double max_x;
     if (sim.IOParamI["_Iter"]%1 == 0)
     {
-    auto &ux = tfa::getField(sim, "ux_N");
+    auto &ux = tfa::getField(sim, "ux");
     max_x = std::max(fabs(tfa::oper_max(ux)[0]), fabs(tfa::oper_min(ux)[0]));
     static auto s = tfa::getSolver(sim, "Pressure_Solver");
     tfa::info("%d %.8e %.5e %.5e %.5e %.5e %d\n",
@@ -72,37 +72,11 @@ TF_Func bool monitor(tfa::Simulation &sim)
     return tfa::Iter_Continue;
 }
 
-TF_Func void init_omega(tfa::Simulation &sim)
-{
-    // For this particular application we need a field with the volume of each
-    // cell, replicated in all the components. This volume field will be used
-    // in the FSM, to scale the divergence of the predictor velocity. This is
-    // needed because we use the laplacian multiplied by the volume as the
-    // pressure equation, in order to make the matrix SPD.
-    auto dim    = tfa::getField(sim, "ux_N").dim;
-    auto &omega = tfa::getOrCreateField(sim, dim, "Omega_C", "Cells");
-    const auto &m = tfa::getSMesh(sim);
-    auto cells = tfa::getNumCells(m);
-    std::vector<double> buffer(tfa::getNumEntries(omega));
-
-    for (uint32_t c = 0; c < cells; c++)
-    {
-        const auto &C = tfa::getCellIJKFromId(m, c);
-        double v = tfa::calcCellVolume(m, C);
-        for (uint32_t d = 0; d < dim; d++)
-        {
-            buffer[c*dim+d] = v;
-        }
-    }
-    tfa::oper_setData(omega, buffer.data());
-    tfa::info("init_omega completed.\n");
-}
-
 TF_Func void calc_div_u(tfa::Simulation &sim)
 {
-    auto &DX = tfa::getMatrix(sim, "DivX_FC");
-    auto &DY = tfa::getMatrix(sim, "DivY_FC");
-    auto &DZ = tfa::getMatrix(sim, "DivZ_FC");
+    auto &DX = tfa::getMatrix(sim, "DivX_FN");
+    auto &DY = tfa::getMatrix(sim, "DivY_FN");
+    auto &DZ = tfa::getMatrix(sim, "DivZ_FN");
 
     auto &ux = tfa::getField(sim, "ux_F");
     auto &uy = tfa::getField(sim, "uy_F");

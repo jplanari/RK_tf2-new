@@ -25,82 +25,56 @@ TF_Func void SetUp_Momentum_RK(tfa::Simulation &sim)
     // the official FSM, with the correct number of components, i.e., one
     // component per simulation.
     TF_uAssert((sim.meshes.size() == 1) xor tfa::hasSMesh(sim), "not yet implemented for multiple meshes");
-    TF_uAssert(tfa::hasField(sim, "ux_N"), "required field ux_N not defined");
-    TF_uAssert(tfa::hasField(sim, "uy_N"), "required field uy_N not defined");
-    TF_uAssert(tfa::hasField(sim, "uz_N"), "required field uz_N not defined");
-    TF_uAssert(tfa::hasField(sim, "Omega_C"), "required field Omega_C not defined");
+    TF_uAssert(tfa::hasField(sim, "ux"), "required field ux_N not defined");
+    TF_uAssert(tfa::hasField(sim, "uy"), "required field uy_N not defined");
+    TF_uAssert(tfa::hasField(sim, "uz"), "required field uz_N not defined");
 
     const auto &meshName = tfa::getMeshName(sim);
     const auto &msuf     = tfa::meshSuffix(meshName);
-    const auto &cells    = "Cells"+msuf;
     const auto &faces    = "Faces"+msuf;
     const auto &nodes    = "Nodes"+msuf;
-
-    const auto smesh = tfa::hasSMesh(sim);
-   
-    const auto &pMod = smesh? "smeshPatterns.so" : "patterns.so";
-    const auto &kMod = smesh? "smeshInterpolators.so" : "interpolators.so";
     
-    if (not tfa::hasMatrix(sim, "Id_NC"))
-    {
-        tfa::newMatrix(sim, "Id_NC", "pId_NC", pMod, "kId_NC", kMod, meshName);
-    }
-    if (not tfa::hasMatrix(sim, "Id_CN"))
-    {
-        tfa::newMatrix(sim, "Id_CN", "pId_CN", pMod, "kId_CN", kMod, meshName);
-    }
+    const auto dim = tfa::getField(sim, "ux").dim;
 
-    const auto dim = tfa::getField(sim, "ux_N").dim;
+    tfa::getOrCreateField(sim, dim, "momSrcx", nodes);
+    tfa::getOrCreateField(sim, dim, "momSrcy", nodes);
+    tfa::getOrCreateField(sim, dim, "momSrcz", nodes);
 
-    tfa::getOrCreateField(sim, dim, "upredx_C",  cells);
-    tfa::getOrCreateField(sim, dim, "upredy_C",  cells);
-    tfa::getOrCreateField(sim, dim, "upredz_C",  cells);
-
-    tfa::getOrCreateField(sim, dim, "momSrcx_C", cells);
-    tfa::getOrCreateField(sim, dim, "momSrcy_C", cells);
-    tfa::getOrCreateField(sim, dim, "momSrcz_C", cells);
-
-    tfa::getOrCreateField(sim, dim, "P_C",       cells);
+    tfa::getOrCreateField(sim, dim, "P",       nodes);
 
     tfa::getOrCreateField(sim, dim, "ux_F", faces);
     tfa::getOrCreateField(sim, dim, "uy_F", faces);
     tfa::getOrCreateField(sim, dim, "uz_F", faces);
 
-    tfa::getOrCreateField(sim, dim, "ux0_N", nodes);
-    tfa::getOrCreateField(sim, dim, "uy0_N", nodes);
-    tfa::getOrCreateField(sim, dim, "uz0_N", nodes);
+    tfa::getOrCreateField(sim, dim, "ux0", nodes);
+    tfa::getOrCreateField(sim, dim, "uy0", nodes);
+    tfa::getOrCreateField(sim, dim, "uz0", nodes);
 }
 
 TF_Func bool RKiteration(tfa::Simulation &sim)
 {
     CPUTimer_Beg("iteration");
-    auto &M     = tfa::getMatrix(sim, "Id_NC");
-    auto &GX    = tfa::getMatrix(sim, "GradX_CF");
-    auto &GY    = tfa::getMatrix(sim, "GradY_CF");
-    auto &GZ    = tfa::getMatrix(sim, "GradZ_CF");
-    auto &ICF   = tfa::getMatrix(sim, "Interp_CF");
-    auto &IFC   = tfa::getMatrix(sim, "Interp_FC");
-    auto &ID_CN = tfa::getMatrix(sim, "Id_CN");
 
-    auto &ux     = tfa::getField(sim, "ux_N");
-    auto &uy     = tfa::getField(sim, "uy_N");
-    auto &uz     = tfa::getField(sim, "uz_N");
+    auto &GX    = tfa::getMatrix(sim, "GradX_NF");
+    auto &GY    = tfa::getMatrix(sim, "GradY_NF");
+    auto &GZ    = tfa::getMatrix(sim, "GradZ_NF");
+    auto &IFN   = tfa::getMatrix(sim, "Interp_FN");
+    auto &INF   = tfa::getMatrix(sim, "Interp_NF");
+    
+    auto &ux     = tfa::getField(sim, "ux");
+    auto &uy     = tfa::getField(sim, "uy");
+    auto &uz     = tfa::getField(sim, "uz");
     
     auto &ufx    = tfa::getField(sim, "ux_F");
     auto &ufy    = tfa::getField(sim, "uy_F");
     auto &ufz    = tfa::getField(sim, "uz_F");
 
-    auto &upx    = tfa::getField(sim, "upredx_C");
-    auto &upy    = tfa::getField(sim, "upredy_C");
-    auto &upz    = tfa::getField(sim, "upredz_C");
+    auto &msx    = tfa::getField(sim, "momSrcx");
+    auto &msy    = tfa::getField(sim, "momSrcy");
+    auto &msz    = tfa::getField(sim, "momSrcz");
 
-    auto &msx    = tfa::getField(sim, "momSrcx_C");
-    auto &msy    = tfa::getField(sim, "momSrcy_C");
-    auto &msz    = tfa::getField(sim, "momSrcz_C");
-    
-    auto &p      = tfa::getField(sim, "P_C");
+    auto &p      = tfa::getField(sim, "P");
     static auto psolver = tfa::getSolver(sim, "Pressure_Solver");
-    
     butcherTableau coefs = intScheme(sim.IOParamS["RKmethod"]);
 
     std::vector<double> b = coefs.b;
@@ -117,17 +91,13 @@ TF_Func bool RKiteration(tfa::Simulation &sim)
     // Temporary variables.
     auto pSource = tfa::getTmpFieldS(sim, p);
     
-    auto uxn = tfa::getTmpFieldS(sim,upx);
-    auto uyn = tfa::getTmpFieldS(sim,upx);
-    auto uzn = tfa::getTmpFieldS(sim,upx);
+    auto uxn = tfa::getTmpFieldS(sim,ux);
+    auto uyn = tfa::getTmpFieldS(sim,ux);
+    auto uzn = tfa::getTmpFieldS(sim,ux);
 
-    tfa::oper_prod(M, ux, upx);
-    tfa::oper_prod(M, uy, upy);
-    tfa::oper_prod(M, uz, upz);
-
-    tfa::oper_copy(upx,*uxn);
-    tfa::oper_copy(upy,*uyn);
-    tfa::oper_copy(upz,*uzn);
+    tfa::oper_copy(ux,*uxn);
+    tfa::oper_copy(uy,*uyn);
+    tfa::oper_copy(uz,*uzn);
 
     double dt = sim.IOParamD["_TimeStep"];
 
@@ -136,17 +106,17 @@ TF_Func bool RKiteration(tfa::Simulation &sim)
     // Predictor velocity should be computed here but for 1st stage it is not
     // required
 
-    tfa::oper_prod(ICF, upx, ufx);
-    tfa::oper_prod(ICF, upy, ufy);
-    tfa::oper_prod(ICF, upz, ufz);
+    tfa::oper_prod(INF, ux, ufx);
+    tfa::oper_prod(INF, uy, ufy);
+    tfa::oper_prod(INF, uz, ufz);
    
-    auto &diffx0 = tfa::getOrCreateField(sim,"diffx_0",upx);
-    auto &diffy0 = tfa::getOrCreateField(sim,"diffy_0",upx);
-    auto &diffz0 = tfa::getOrCreateField(sim,"diffz_0",upx);
+    auto &diffx0 = tfa::getOrCreateField(sim,"diffx_0",ux);
+    auto &diffy0 = tfa::getOrCreateField(sim,"diffy_0",ux);
+    auto &diffz0 = tfa::getOrCreateField(sim,"diffz_0",ux);
 
-    auto &convx0 = tfa::getOrCreateField(sim,"convx_0",upx);
-    auto &convy0 = tfa::getOrCreateField(sim,"convy_0",upx);
-    auto &convz0 = tfa::getOrCreateField(sim,"convz_0",upx);
+    auto &convx0 = tfa::getOrCreateField(sim,"convx_0",ux);
+    auto &convy0 = tfa::getOrCreateField(sim,"convy_0",ux);
+    auto &convz0 = tfa::getOrCreateField(sim,"convz_0",ux);
 
     tfa::oper_prod(diffx0,diffx0,0.0);
     tfa::oper_prod(diffy0,diffy0,0.0);
@@ -165,6 +135,7 @@ TF_Func bool RKiteration(tfa::Simulation &sim)
     diffusive(ux,diffx0,sim);
     diffusive(uy,diffy0,sim);
     diffusive(uz,diffz0,sim);
+
     convective(ufx,convx0,sim);
     convective(ufy,convy0,sim);
     convective(ufz,convz0,sim);
@@ -172,45 +143,48 @@ TF_Func bool RKiteration(tfa::Simulation &sim)
     //predictor 2 stage
 
     for(long unsigned int i = 1; i<s; ++i){
-      
-      tfa::oper_copy(*uxn,upx);
-      tfa::oper_copy(*uyn,upy);
-      tfa::oper_copy(*uzn,upz);
+     
+      tfa::oper_copy(*uxn,ux);
+      tfa::oper_copy(*uyn,uy);
+      tfa::oper_copy(*uzn,uz);
 
       for(long unsigned int j=0; j<i; ++j){
-        predictor(upx,upx,*(convx.at(j)),*(diffx.at(j)),msx,A.at(id(i+1,j+1)),dt);
-        predictor(upy,upy,*(convy.at(j)),*(diffy.at(j)),msy,A.at(id(i+1,j+1)),dt);
-        predictor(upz,upz,*(convz.at(j)),*(diffz.at(j)),msz,A.at(id(i+1,j+1)),dt);
+        predictor(ux,ux,*(convx.at(j)),*(diffx.at(j)),msx,A.at(id(i+1,j+1)),dt);
+        predictor(uy,uy,*(convy.at(j)),*(diffy.at(j)),msy,A.at(id(i+1,j+1)),dt);
+        predictor(uz,uz,*(convz.at(j)),*(diffz.at(j)),msz,A.at(id(i+1,j+1)),dt);
       }
       
-      tfa::oper_prod(ICF, upx, ufx);
-      tfa::oper_prod(ICF, upy, ufy);
-      tfa::oper_prod(ICF, upz, ufz);
+      tfa::oper_prod(INF, ux, ufx);
+      tfa::oper_prod(INF, uy, ufy);
+      tfa::oper_prod(INF, uz, ufz);
     
       pRHS(*pSource,ufx,ufy,ufz,sim); 
+   
+      CPUTimer_Beg("poisson");
       tfa::oper_solve(psolver, *pSource, p);
- 
+      CPUTimer_End("poisson");
+      
       projection(ufx,p,GX);
       projection(ufy,p,GY);
       projection(ufz,p,GZ);
 
-      projection(upx,p,GX,IFC,sim);
-      projection(upy,p,GY,IFC,sim);
-      projection(upz,p,GZ,IFC,sim);
+      projection(ux,p,GX,IFN,sim);
+      projection(uy,p,GY,IFN,sim);
+      projection(uz,p,GZ,IFN,sim);
       
    // Map the velocity to the nodes.
-      ID_CN_bocos(upx, ux, "ux_N", sim);
-      ID_CN_bocos(upy, uy, "uy_N", sim);
-      ID_CN_bocos(upz, uz, "uz_N", sim);
+      innerRK_bocos(ux,"ux", sim);
+      innerRK_bocos(uy,"uy", sim);
+      innerRK_bocos(uz,"uz", sim);
 
       //FINAL STAGE
  
-      auto &convxi = tfa::getOrCreateField(sim,"convx_"+std::to_string(i),upx);
-      auto &convyi = tfa::getOrCreateField(sim,"convy_"+std::to_string(i),upx);
-      auto &convzi = tfa::getOrCreateField(sim,"convz_"+std::to_string(i),upx);
-      auto &diffxi = tfa::getOrCreateField(sim,"diffx_"+std::to_string(i),upx);
-      auto &diffyi = tfa::getOrCreateField(sim,"diffy_"+std::to_string(i),upx);
-      auto &diffzi = tfa::getOrCreateField(sim,"diffz_"+std::to_string(i),upx);
+      auto &convxi = tfa::getOrCreateField(sim,"convx_"+std::to_string(i),ux);
+      auto &convyi = tfa::getOrCreateField(sim,"convy_"+std::to_string(i),ux);
+      auto &convzi = tfa::getOrCreateField(sim,"convz_"+std::to_string(i),ux);
+      auto &diffxi = tfa::getOrCreateField(sim,"diffx_"+std::to_string(i),ux);
+      auto &diffyi = tfa::getOrCreateField(sim,"diffy_"+std::to_string(i),ux);
+      auto &diffzi = tfa::getOrCreateField(sim,"diffz_"+std::to_string(i),ux);
  
       diffx.at(i) = &diffxi;
       diffy.at(i) = &diffyi;
@@ -233,40 +207,35 @@ TF_Func bool RKiteration(tfa::Simulation &sim)
       convective(ufy,convyi,sim);
       convective(ufz,convzi,sim);
     }
-    //printMaxVals("end of first stage. DIFFUSIVE FIELD",diffx,diffy,diffz);
-    //printMaxVals("end of first stage. CONVECTIVE FIELD",convx,convy,convz);
     
-    //Predictor velocity
-    tfa::oper_copy(*uxn,upx);
-    tfa::oper_copy(*uyn,upy);
-    tfa::oper_copy(*uzn,upz);
+    tfa::oper_copy(*uxn,ux);
+    tfa::oper_copy(*uyn,uy);
+    tfa::oper_copy(*uzn,uz);
     
     for(long unsigned int i = 0; i < s; ++i){ 
-      predictor(upx,upx,*(convx.at(i)),*(diffx.at(i)),msx,b.at(i),dt);
-      predictor(upy,upy,*(convy.at(i)),*(diffy.at(i)),msy,b.at(i),dt);
-      predictor(upz,upz,*(convz.at(i)),*(diffz.at(i)),msz,b.at(i),dt);
+      predictor(ux,ux,*(convx.at(i)),*(diffx.at(i)),msx,b.at(i),dt);
+      predictor(uy,uy,*(convy.at(i)),*(diffy.at(i)),msy,b.at(i),dt);
+      predictor(uz,uz,*(convz.at(i)),*(diffz.at(i)),msz,b.at(i),dt);
     }
 
-    tfa::oper_prod(ICF, upx, ufx);
-    tfa::oper_prod(ICF, upy, ufy);
-    tfa::oper_prod(ICF, upz, ufz);
+    tfa::oper_prod(INF, ux, ufx);
+    tfa::oper_prod(INF, uy, ufy);
+    tfa::oper_prod(INF, uz, ufz);
     
-    pRHS(*pSource,ufx,ufy,ufz,sim); 
+    pRHS(*pSource,ufx,ufy,ufz,sim);
+    
+    CPUTimer_Beg("poisson");
     tfa::oper_solve(psolver, *pSource, p);
- 
+    CPUTimer_End("poisson");
+
     projection(ufx,p,GX);
     projection(ufy,p,GY);
     projection(ufz,p,GZ);
 
-    projection(upx,p,GX,IFC,sim);
-    projection(upy,p,GY,IFC,sim);
-    projection(upz,p,GZ,IFC,sim);
-    
-   // Map the velocity to the nodes.
-    tfa::oper_prod(ID_CN, upx, ux);
-    tfa::oper_prod(ID_CN, upy, uy);
-    tfa::oper_prod(ID_CN, upz, uz);
-
+    projection(ux,p,GX,IFN,sim);
+    projection(uy,p,GY,IFN,sim);
+    projection(uz,p,GZ,IFN,sim);
+   
     CPUTimer_End("iteration");
     return tfa::Iter_Continue;
 }
@@ -276,37 +245,32 @@ TF_Func bool RKiteration_energy(tfa::Simulation &sim)
 {
     CPUTimer_Beg("iteration");
     
-    auto &M     = tfa::getMatrix(sim, "Id_NC");
-    auto &GX    = tfa::getMatrix(sim, "GradX_CF");
-    auto &GY    = tfa::getMatrix(sim, "GradY_CF");
-    auto &GZ    = tfa::getMatrix(sim, "GradZ_CF");
-    auto &ICF   = tfa::getMatrix(sim, "Interp_CF");
-    auto &IFC   = tfa::getMatrix(sim, "Interp_FC");
-    auto &ID_CN = tfa::getMatrix(sim, "Id_CN");
+    tfa::info("I am in");
+    auto &GX    = tfa::getMatrix(sim, "GradX_NF");
+    auto &GY    = tfa::getMatrix(sim, "GradY_NF");
+    auto &GZ    = tfa::getMatrix(sim, "GradZ_NF");
+    auto &IFN   = tfa::getMatrix(sim, "Interp_FN");
     auto &INF   = tfa::getMatrix(sim, "Interp_NF");
     
-    auto &ux     = tfa::getField(sim, "ux_N");
-    auto &uy     = tfa::getField(sim, "uy_N");
-    auto &uz     = tfa::getField(sim, "uz_N");
+    auto &ux     = tfa::getField(sim, "ux");
+    auto &uy     = tfa::getField(sim, "uy");
+    auto &uz     = tfa::getField(sim, "uz");
     
-    auto &T      = tfa::getField(sim, "T_N");
+    auto &T      = tfa::getField(sim, "T");
     
     auto &ufx    = tfa::getField(sim, "ux_F");
     auto &ufy    = tfa::getField(sim, "uy_F");
     auto &ufz    = tfa::getField(sim, "uz_F");
 
-    auto &upx    = tfa::getField(sim, "upredx_C");
-    auto &upy    = tfa::getField(sim, "upredy_C");
-    auto &upz    = tfa::getField(sim, "upredz_C");
-
-    auto &msx    = tfa::getField(sim, "momSrcx_C");
-    auto &msy    = tfa::getField(sim, "momSrcy_C");
-    auto &msz    = tfa::getField(sim, "momSrcz_C");
+    auto &msx    = tfa::getField(sim, "momSrcx");
+    auto &msy    = tfa::getField(sim, "momSrcy");
+    auto &msz    = tfa::getField(sim, "momSrcz");
     auto msT    = tfa::getTmpFieldS(sim, msx);
 
     tfa::oper_setConst(*msT,0.0);
     
-    auto &p      = tfa::getField(sim, "P_C");
+    
+    auto &p      = tfa::getField(sim, "P");
     static auto psolver = tfa::getSolver(sim, "Pressure_Solver");
     butcherTableau coefs = intScheme(sim.IOParamS["RKmethod"]);
 
@@ -328,42 +292,38 @@ TF_Func bool RKiteration_energy(tfa::Simulation &sim)
     // Temporary variables.
     auto pSource = tfa::getTmpFieldS(sim, p);
     
-    auto uxn = tfa::getTmpFieldS(sim,upx);
-    auto uyn = tfa::getTmpFieldS(sim,upx);
-    auto uzn = tfa::getTmpFieldS(sim,upx);
-
-    auto Tc = tfa::getTmpFieldS(sim,upx);
-    auto Tf = tfa::getTmpFieldS(sim,ufx);
+    auto uxn = tfa::getTmpFieldS(sim,ux);
+    auto uyn = tfa::getTmpFieldS(sim,ux);
+    auto uzn = tfa::getTmpFieldS(sim,ux);
     
-    tfa::oper_prod(M, ux, upx);
-    tfa::oper_prod(M, uy, upy);
-    tfa::oper_prod(M, uz, upz);
+    auto Tf = tfa::getTmpFieldS(sim,ufx);
 
-    tfa::oper_copy(upx,*uxn);
-    tfa::oper_copy(upy,*uyn);
-    tfa::oper_copy(upz,*uzn);
+    tfa::oper_copy(ux,*uxn);
+    tfa::oper_copy(uy,*uyn);
+    tfa::oper_copy(uz,*uzn);
 
     double dt = sim.IOParamD["_TimeStep"];
+    
 
     //SUBSTAGE 1
     
     // Predictor velocity should be computed here but for 1st stage it is not
     // required
 
-    tfa::oper_prod(ICF, upx, ufx);
-    tfa::oper_prod(ICF, upy, ufy);
-    tfa::oper_prod(ICF, upz, ufz);
+    tfa::oper_prod(INF, ux, ufx);
+    tfa::oper_prod(INF, uy, ufy);
+    tfa::oper_prod(INF, uz, ufz);
    
-    auto &diffx0 = tfa::getOrCreateField(sim,"diffx_0",upx);
-    auto &diffy0 = tfa::getOrCreateField(sim,"diffy_0",upx);
-    auto &diffz0 = tfa::getOrCreateField(sim,"diffz_0",upx);
+    auto &diffx0 = tfa::getOrCreateField(sim,"diffx_0",ux);
+    auto &diffy0 = tfa::getOrCreateField(sim,"diffy_0",ux);
+    auto &diffz0 = tfa::getOrCreateField(sim,"diffz_0",ux);
 
-    auto &convx0 = tfa::getOrCreateField(sim,"convx_0",upx);
-    auto &convy0 = tfa::getOrCreateField(sim,"convy_0",upx);
-    auto &convz0 = tfa::getOrCreateField(sim,"convz_0",upx);
+    auto &convx0 = tfa::getOrCreateField(sim,"convx_0",ux);
+    auto &convy0 = tfa::getOrCreateField(sim,"convy_0",ux);
+    auto &convz0 = tfa::getOrCreateField(sim,"convz_0",ux);
 
-    auto &diffT = tfa::getOrCreateField(sim,"diffT",upx);
-    auto &convT = tfa::getOrCreateField(sim,"convT",upx);
+    auto &diffT = tfa::getOrCreateField(sim,"diffT",T);
+    auto &convT = tfa::getOrCreateField(sim,"convT",T);
     auto &T0 = tfa::getOrCreateField(sim,"T_0",T);
 
     tfa::oper_prod(diffx0,diffx0,0.0);
@@ -383,6 +343,7 @@ TF_Func bool RKiteration_energy(tfa::Simulation &sim)
     diffusive(ux,diffx0,sim);
     diffusive(uy,diffy0,sim);
     diffusive(uz,diffz0,sim);
+
     convective(ufx,convx0,sim);
     convective(ufy,convy0,sim);
     convective(ufz,convz0,sim);
@@ -401,22 +362,24 @@ TF_Func bool RKiteration_energy(tfa::Simulation &sim)
 
     for(long unsigned int i = 1; i<s; ++i){
       
-      tfa::oper_copy(*uxn,upx);
-      tfa::oper_copy(*uyn,upy);
-      tfa::oper_copy(*uzn,upz);
+      tfa::oper_copy(*uxn,ux);
+      tfa::oper_copy(*uyn,uy);
+      tfa::oper_copy(*uzn,uz);
 
       for(long unsigned int j=0; j<i; ++j){
+        
         if(sim.IOParamS["updateBoussinesq"] == "yes")
           generateSourceTerm(1.0,*(Trk.at(j)),msy,sim); 
         
-        predictor(upx,upx,*(convx.at(j)),*(diffx.at(j)),msx,A.at(id(i+1,j+1)),dt);
-        predictor(upy,upy,*(convy.at(j)),*(diffy.at(j)),msy,A.at(id(i+1,j+1)),dt);
-        predictor(upz,upz,*(convz.at(j)),*(diffz.at(j)),msz,A.at(id(i+1,j+1)),dt);
+        predictor(ux,ux,*(convx.at(j)),*(diffx.at(j)),msx,A.at(id(i+1,j+1)),dt);
+        predictor(uy,uy,*(convy.at(j)),*(diffy.at(j)),msy,A.at(id(i+1,j+1)),dt);
+        predictor(uz,uz,*(convz.at(j)),*(diffz.at(j)),msz,A.at(id(i+1,j+1)),dt);
+      
       }
       
-      tfa::oper_prod(ICF, upx, ufx);
-      tfa::oper_prod(ICF, upy, ufy);
-      tfa::oper_prod(ICF, upz, ufz);
+      tfa::oper_prod(INF, ux, ufx);
+      tfa::oper_prod(INF, uy, ufy);
+      tfa::oper_prod(INF, uz, ufz);
     
       pRHS(*pSource,ufx,ufy,ufz,sim); 
    
@@ -428,38 +391,36 @@ TF_Func bool RKiteration_energy(tfa::Simulation &sim)
       projection(ufy,p,GY);
       projection(ufz,p,GZ);
 
-      projection(upx,p,GX,IFC,sim);
-      projection(upy,p,GY,IFC,sim);
-      projection(upz,p,GZ,IFC,sim);
+      projection(ux,p,GX,IFN,sim);
+      projection(uy,p,GY,IFN,sim);
+      projection(uz,p,GZ,IFN,sim);
       
    // Map the velocity to the nodes.
-      ID_CN_bocos(upx, ux, "ux_N", sim);
-      ID_CN_bocos(upy, uy, "uy_N", sim);
-      ID_CN_bocos(upz, uz, "uz_N", sim);
+      innerRK_bocos(ux,"ux", sim);
+      innerRK_bocos(uy,"uy", sim);
+      innerRK_bocos(uz,"uz", sim);
 
       //ENERGY EQUATION
       
-      tfa::oper_prod(M,T0,*Tc);
+      auto &Ti = tfa::getOrCreateField(sim,"T_"+std::to_string(i),T0);
+      Trk.at(i) = &Ti;
       
+      tfa::oper_copy(T0,Ti);
+
       for(long unsigned int j=0; j<i; ++j){
         tfa::oper_prod(INF,*(Trk.at(j)),*Tf);
         convective(*Tf,convT,sim);
         diffusive(*(Trk.at(j)),diffT,lambda,sim);
-        predictor(*Tc,*Tc,convT,diffT,*msT,A.at(id(i+1,j+1)),dt);
+        predictor(Ti,Ti,convT,diffT,*msT,A.at(id(i+1,j+1)),dt);
       }
-      
-      auto &Ti = tfa::getOrCreateField(sim,"T_"+std::to_string(i),T0);
+      innerRK_bocos(Ti,"T",sim);
 
-      Trk.at(i) = &Ti;
-      tfa::oper_prod(Ti,Ti,0.0);
-      ID_CN_bocos(*Tc,Ti,"T_N",sim);
-
-      auto &convxi = tfa::getOrCreateField(sim,"convx_"+std::to_string(i),upx);
-      auto &convyi = tfa::getOrCreateField(sim,"convy_"+std::to_string(i),upx);
-      auto &convzi = tfa::getOrCreateField(sim,"convz_"+std::to_string(i),upx);
-      auto &diffxi = tfa::getOrCreateField(sim,"diffx_"+std::to_string(i),upx);
-      auto &diffyi = tfa::getOrCreateField(sim,"diffy_"+std::to_string(i),upx);
-      auto &diffzi = tfa::getOrCreateField(sim,"diffz_"+std::to_string(i),upx);
+      auto &convxi = tfa::getOrCreateField(sim,"convx_"+std::to_string(i),ux);
+      auto &convyi = tfa::getOrCreateField(sim,"convy_"+std::to_string(i),ux);
+      auto &convzi = tfa::getOrCreateField(sim,"convz_"+std::to_string(i),ux);
+      auto &diffxi = tfa::getOrCreateField(sim,"diffx_"+std::to_string(i),ux);
+      auto &diffyi = tfa::getOrCreateField(sim,"diffy_"+std::to_string(i),ux);
+      auto &diffzi = tfa::getOrCreateField(sim,"diffz_"+std::to_string(i),ux);
  
       diffx.at(i) = &diffxi;
       diffy.at(i) = &diffyi;
@@ -486,22 +447,22 @@ TF_Func bool RKiteration_energy(tfa::Simulation &sim)
     //printMaxVals("end of first stage. CONVECTIVE FIELD",convx,convy,convz);
     
     //Predictor velocity
-    tfa::oper_copy(*uxn,upx);
-    tfa::oper_copy(*uyn,upy);
-    tfa::oper_copy(*uzn,upz);
+    tfa::oper_copy(*uxn,ux);
+    tfa::oper_copy(*uyn,uy);
+    tfa::oper_copy(*uzn,uz);
     
     for(long unsigned int i = 0; i < s; ++i){ 
       if(sim.IOParamS["updateBoussinesq"] == "yes")
         generateSourceTerm(1.0,*(Trk.at(i)),msy,sim); 
 
-      predictor(upx,upx,*(convx.at(i)),*(diffx.at(i)),msx,b.at(i),dt);
-      predictor(upy,upy,*(convy.at(i)),*(diffy.at(i)),msy,b.at(i),dt);
-      predictor(upz,upz,*(convz.at(i)),*(diffz.at(i)),msz,b.at(i),dt);
+      predictor(ux,ux,*(convx.at(i)),*(diffx.at(i)),msx,b.at(i),dt);
+      predictor(uy,uy,*(convy.at(i)),*(diffy.at(i)),msy,b.at(i),dt);
+      predictor(uz,uz,*(convz.at(i)),*(diffz.at(i)),msz,b.at(i),dt);
     }
 
-    tfa::oper_prod(ICF, upx, ufx);
-    tfa::oper_prod(ICF, upy, ufy);
-    tfa::oper_prod(ICF, upz, ufz);
+    tfa::oper_prod(INF, ux, ufx);
+    tfa::oper_prod(INF, uy, ufy);
+    tfa::oper_prod(INF, uz, ufz);
     
     pRHS(*pSource,ufx,ufy,ufz,sim);
     
@@ -513,23 +474,18 @@ TF_Func bool RKiteration_energy(tfa::Simulation &sim)
     projection(ufy,p,GY);
     projection(ufz,p,GZ);
 
-    projection(upx,p,GX,IFC,sim);
-    projection(upy,p,GY,IFC,sim);
-    projection(upz,p,GZ,IFC,sim);
+    projection(ux,p,GX,IFN,sim);
+    projection(uy,p,GY,IFN,sim);
+    projection(uz,p,GZ,IFN,sim);
     
-   // Map the velocity to the nodes.
-    tfa::oper_prod(ID_CN, upx, ux);
-    tfa::oper_prod(ID_CN, upy, uy);
-    tfa::oper_prod(ID_CN, upz, uz);
-
+    tfa::oper_copy(T0,T);  
+  
     for(long unsigned int i = 0; i < s; ++i){ 
       tfa::oper_prod(INF,*(Trk.at(i)),*Tf);
       convective(*Tf,convT,sim);
       diffusive(*(Trk.at(i)),diffT,lambda,sim);
-      predictor(*Tc,*Tc,convT,diffT,*msT,b.at(i),dt);
+      predictor(T,T,convT,diffT,*msT,b.at(i),dt);
     }
-
-    tfa::oper_prod(ID_CN, *Tc, T);
 
     CPUTimer_End("iteration");
     
